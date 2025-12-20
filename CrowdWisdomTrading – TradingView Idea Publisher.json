@@ -1,0 +1,459 @@
+{
+  "name": "CrowdWisdomTrading – TradingView Idea Publisher",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e264a6c1-1926-47b5-841e-4c37f86b3d25",
+      "name": "Manual Start"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "mimeType = 'text/plain'",
+        "returnAll": true,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "1TH909zUjln6tyltqyqeLqh-fUiYH1uW0",
+            "mode": "list",
+            "cachedResultName": "TradingView_Ideas",
+            "cachedResultUrl": "https://drive.google.com/drive/folders/1TH909zUjln6tyltqyqeLqh-fUiYH1uW0"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "441431c8-e46b-4560-8ca6-559986a7a30e",
+      "name": "Search files and folders",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "n5ffNZ70TIoDfr1g",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "={{$json.id}}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        832,
+        0
+      ],
+      "id": "42e16d0f-7e6d-4c2c-b36f-13681fb5f1f0",
+      "name": "Download Idea File",
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "n5ffNZ70TIoDfr1g",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clone items to avoid mutation\nconst items = [...$input.all()];\n\n// Fisher-Yates shuffle (true randomness)\nfor (let i = items.length - 1; i > 0; i--) {\n  const j = Math.floor(Math.random() * (i + 1));\n  [items[i], items[j]] = [items[j], items[i]];\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "a7dab0ee-214c-4a02-9132-7c6bd9f77d0d",
+      "name": "Shuffle Files"
+    },
+    {
+      "parameters": {
+        "maxItems": 2
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "6366d9a3-9ff8-4bca-858b-69053ce478d4",
+      "name": "Pick 2 Files"
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "da704189-8fa6-465c-b480-5116cd8db353",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Based on this trading idea, generate a JSON with:\n- ticker: stock symbol (e.g., \"AAPL\")\n- title: catchy headline (max 60 chars)\n- idea: the full analysis text\n- bias: \"Long\", \"Short\", or \"Neutral\" based on content\n- category: one of \"Trend Analysis\", \"Technical Analysis\", \"Fundamental Analysis\"\n- tags: array of 3-5 relevant tags\n\nContent:\n{{ $json.data }}\n\nReturn ONLY valid JSON, no markdown."
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "1b7d3f95-ff22-4365-949c-f24f9ea23871",
+      "name": "AI Structuring",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "cm9Cduh6H5VXxp41",
+          "name": "gemini345"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const text = item.json.content.parts[0].text;\n  const parsed = JSON.parse(text);\n  results.push({ json: parsed });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        0
+      ],
+      "id": "4fc450f6-539b-4f02-8cfa-5b8ef7d89e7b",
+      "name": "Parse Output"
+    },
+    {
+      "parameters": {
+        "executeOnce": false,
+        "command": "=powershell -ExecutionPolicy Bypass -File D:\\internship\\TradingView-Bot\\parse.ps1 -Ticker \"{{ $json.ticker }}\" -Title \"{{ $json.title.replace(/\"/g, '`\"') }}\" -Idea \"{{ $json.idea.replace(/\"/g, '`\"').replace(/\\n/g, ' ') }}\" -Bias \"{{ $json.bias }}\" -Category \"{{ $json.category }}\" -Tags \"{{ $json.tags.join(',') }}\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2016,
+        0
+      ],
+      "id": "8ed83acb-5645-4122-acf9-4d56c82d88a0",
+      "name": "Post Idea",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1vvMeV3q-foRf09JOhJMF2tUDLEiYgECKoxLRysqgseQ",
+          "mode": "list",
+          "cachedResultName": "TradingView_Idea_Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vvMeV3q-foRf09JOhJMF2tUDLEiYgECKoxLRysqgseQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1vvMeV3q-foRf09JOhJMF2tUDLEiYgECKoxLRysqgseQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Ticker",
+              "displayName": "Ticker",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Bias",
+              "displayName": "Bias",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tags",
+              "displayName": "Tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Published",
+              "displayName": "Published",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2688,
+        0
+      ],
+      "id": "f26e88e3-9dbe-4491-b71d-6bf7627b1ddf",
+      "name": "Log to Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "74kvmAzv7H1PFaji",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2080,
+        256
+      ],
+      "id": "efb36678-7f73-4424-b1e5-13775499b4a5",
+      "name": "Fetch Details"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const executionId = $execution.id;\nconst today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD\n\nlet result = { status: 'unknown', published: false };\n\nif ($json.stdout?.trim()) {\n  try {\n    result = JSON.parse($json.stdout);\n  } catch {\n    result.status = 'parse_failed';\n  }\n}\n\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    execution_id: executionId,\n\n    ticker: $json.ticker ?? '',\n    title: $json.title ?? '',\n    bias: $json.bias ?? '',\n    category: $json.category ?? '',\n    tags: Array.isArray($json.tags) ? $json.tags.join(', ') : '',\n\n    published: result.published ?? false,\n    status: result.status ?? 'unknown'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ],
+      "id": "414782bd-39cd-42f8-aa2e-1f61494c2d7a",
+      "name": "Parse Details"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Start": {
+      "main": [
+        [
+          {
+            "node": "Search files and folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders": {
+      "main": [
+        [
+          {
+            "node": "Shuffle Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shuffle Files": {
+      "main": [
+        [
+          {
+            "node": "Pick 2 Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick 2 Files": {
+      "main": [
+        [
+          {
+            "node": "Download Idea File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Idea File": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "AI Structuring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Structuring": {
+      "main": [
+        [
+          {
+            "node": "Parse Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Output": {
+      "main": [
+        [
+          {
+            "node": "Post Idea",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Details",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Post Idea": {
+      "main": [
+        [
+          {
+            "node": "Fetch Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Details": {
+      "main": [
+        [
+          {
+            "node": "Parse Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Details": {
+      "main": [
+        [
+          {
+            "node": "Log to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "677c3322-c6b6-41d7-84fb-724a1a6ed809",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b33fbc101d71edd26541f58802da6f2ef4a503a4426ad2db6a2a8963eb1138ee"
+  },
+  "id": "I4jvSdjTndVlrdBE",
+  "tags": []
+}

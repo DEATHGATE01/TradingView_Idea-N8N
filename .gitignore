@@ -1,0 +1,9 @@
+# Sensitive files
+tradingview_cookies.json
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
