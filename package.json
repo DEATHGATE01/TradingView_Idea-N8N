@@ -1,0 +1,9 @@
+{
+  "name": "tradingview-automation-tests",
+  "version": "1.0.0",
+  "description": "Tests for TradingView automation workflow",
+  "scripts": {
+    "test": "node tests/test_workflow.js"
+  },
+  "devDependencies": {}
+}
